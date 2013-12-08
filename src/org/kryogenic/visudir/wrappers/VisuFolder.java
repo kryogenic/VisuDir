@@ -1,5 +1,6 @@
 package org.kryogenic.visudir.wrappers;
 
+import org.kryogenic.util.Shell;
 import org.kryogenic.visudir.Config;
 import org.kryogenic.visudir.VisuDir;
 import org.kryogenic.visudir.cache.FolderSet;
@@ -31,9 +32,14 @@ public final class VisuFolder extends VisuThing {
         long largestSize = -1;
         long size = 0;
 
+        Shell<VisuPath> relativeTo = new Shell<>(path);
+        boolean cacheComponents = path.getLength() % 5 == 0;
+        if(cacheComponents) {
+            relativeTo.set(new VisuPath(path.getDrive(), path.getComponents()));
+        }
         if(files == null) {
             File f = path.getFile();
-            Config.put("cur", f.toString());
+            //Config.put("cur", f.toString());
             files = f.listFiles();
         }
         if(files == null) {
@@ -52,8 +58,8 @@ public final class VisuFolder extends VisuThing {
                     if(files[i].isFile()) {
                         contents[i] = new VisuFile(files[i]);
                     } else if(files[i].isDirectory() && (filesIn = files[i].listFiles()) != null) {
-                        contents[i] = new VisuFolder(new VisuPath(files[i].getName(), this.getPath()), filesIn, cache);
-                        Config.put("cur", this.getPath() + VisuDir.FS + files[i].getName());
+                        contents[i] = new VisuFolder(new VisuPath(files[i].getName(), relativeTo), filesIn, cache);
+                        //Config.put("cur", this.getPath() + files[i].getName());
                     } else {
                         //System.out.println("Cannot fromFile '" + files[i] + "'");
                         contents[i] = new VisuThing(files[i]) {
@@ -71,6 +77,11 @@ public final class VisuFolder extends VisuThing {
                 }
             }
         }
+
+        if(cacheComponents) {
+            relativeTo.set(path);
+        }
+
         if(largestIdx < 0) {
             this.largest = null;
         } else {

@@ -1,5 +1,6 @@
 package org.kryogenic.visudir.wrappers;
 
+import org.kryogenic.util.Shell;
 import org.kryogenic.visudir.VisuDir;
 
 import java.io.File;
@@ -15,7 +16,7 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
 
     private final String[] components;
     private final char drive;
-    public final VisuPath relativeTo;
+    private final Shell<VisuPath> relativeTo;
 
     public boolean isBad() {
         return components.length > 1;
@@ -24,18 +25,22 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
     // Constructors
 
     public VisuPath() { // system root
-        this((char) 0, null);
+        this((char) 0, (Shell<VisuPath>) null);
     }
 
     public VisuPath(File f) {
-        this(f.getAbsolutePath(), null);
+        this(f.getAbsolutePath(), (Shell<VisuPath>) null);
     }
 
     public VisuPath(String path) {
-        this(path, null);
+        this(path, (Shell<VisuPath>) null);
     }
 
     public VisuPath(String path, VisuPath relativeTo) {
+        this(path, new Shell<>(relativeTo));
+    }
+
+    public VisuPath(String path, Shell<VisuPath> relativeTo) {
         if(path.charAt(0) != VisuDir.FS.charAt(0) && (path.length() == 1 || path.charAt(1) != ':')) {
             path = VisuDir.FS + path;
         }
@@ -65,7 +70,13 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
         }*/
     }
 
+    public VisuPath(char drive, Object... components) {
+        this(drive, (Shell<VisuPath>) null, components);
+    }
     public VisuPath(char drive, VisuPath relativeTo, Object... components) {
+        this(drive, new Shell<>(relativeTo), components);
+    }
+    public VisuPath(char drive, Shell<VisuPath> relativeTo, Object... components) {
         int length = 0;
         for(Object o : components)
             length += o instanceof String ? 1 : o instanceof String[] ? ((String[]) o).length : 0;
@@ -98,21 +109,6 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
     }
 
     // Private methods
-    private String[] getComponents() {
-        if(relativeTo == null) {
-            return this.components;
-        } else {
-            String[] components = new String[this.getLength()];
-            int i = 0;
-            for(int j = 0; j < relativeTo.getLength(); i++, j++) {
-                components[i] = relativeTo.getComponents()[j];
-            }
-            for(int j = 0; j < this.components.length; i++, j++) {
-                components[i] = this.components[j];
-            }
-            return components;
-        }
-    }
     /**
      * Assumes that <tt>base</tt> actually does contain <tt>this</tt>
      * @param base the VisuPath to back this path with
@@ -145,7 +141,7 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
     public VisuPath getAt(int idx) {
         String[] list = getFile().list();
         if(isSystemRoot()) {
-            return new VisuPath(File.listRoots()[idx].getAbsolutePath().charAt(0), null);
+            return new VisuPath(File.listRoots()[idx].getAbsolutePath().charAt(0), (Shell<VisuPath>) null);
         } else if(list != null && list.length > 0) {
             if(list.length > idx) {
                 return new VisuPath(drive, this, list[idx]);
@@ -170,12 +166,12 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
             System.out.println("New Common Base: " + sb.toString());
             VisuPath commonBase = new VisuPath(sb.toString());
             VisuPath relativeTo = null;
-            if(this.relativeTo != null && commonBase.contains(this.relativeTo)) {
-                relativeTo = this.relativeTo;
+            if(this.relativeTo != null && commonBase.contains(this.relativeTo.get())) {
+                relativeTo = this.relativeTo.get();
             }
-            if(path.relativeTo != null && commonBase.contains(path.relativeTo)) {
-                if(relativeTo == null || path.relativeTo.getLength() > relativeTo.getLength()) {
-                    relativeTo = this.relativeTo;
+            if(path.relativeTo != null && commonBase.contains(path.relativeTo.get())) {
+                if(relativeTo == null || path.relativeTo.get().getLength() > relativeTo.getLength()) {
+                    relativeTo = this.relativeTo.get();
                 }
             }
             if(relativeTo == null) {
@@ -187,9 +183,35 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
             return new VisuPath();
         }
     }
+    public String[] getComponents() {
+        long l = System.currentTimeMillis();
+        if(relativeTo == null) {
+            long d = System.currentTimeMillis() - l;
+            if(d > 150){
+            System.out.println("getComponents: " + d);
+                printFull();
+            }
+            return this.components;
+        } else {
+            String[] components = new String[this.getLength()];
+            int i = 0;
+            for(int j = 0; j < relativeTo.get().getLength(); i++, j++) {
+                components[i] = relativeTo.get().getComponents()[j];
+            }
+            for(int j = 0; j < this.components.length; i++, j++) {
+                components[i] = this.components[j];
+            }
+            long d = System.currentTimeMillis() - l;
+                if(d > 150){
+            System.out.println("getComponents: " + d);
+                printFull();
+                }
+            return components;
+        }
+    }
     public char getDrive() {
         if(relativeTo != null) {
-            return relativeTo.getDrive();
+            return relativeTo.get().getDrive();
         } else {
             return drive;
         }
@@ -204,7 +226,7 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
         if(relativeTo == null) {
             return components.length;
         } else {
-            return relativeTo.getLength() + components.length;
+            return relativeTo.get().getLength() + components.length;
         }
     }
     public VisuPath getParent() {
@@ -215,11 +237,11 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
         } else {
             if(relativeTo != null) {
                 if(components.length == 1) {
-                    return relativeTo;
+                    return relativeTo.get();
                 }
                 return new VisuPath(drive, relativeTo, Arrays.copyOf(components, components.length - 1));
             } else {
-                return new VisuPath(drive, null, Arrays.copyOf(components, components.length - 1));
+                return new VisuPath(drive, (Shell<VisuPath>) null, Arrays.copyOf(components, components.length - 1));
             }
         }
     }
@@ -231,7 +253,7 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
             do {
                 if(path.components.length > 0)
                     return components[components.length - 1];
-            } while((path = path.relativeTo) != null);
+            } while((path = path.relativeTo.get()) != null);
             return "System root";
         }
     }
@@ -242,7 +264,7 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
         return hasDrive() && !isRelative() && components.length == 0;
     }
     public boolean isRelative() {
-        return relativeTo != null && !relativeTo.isSystemRoot();
+        return relativeTo != null && !relativeTo.get().isSystemRoot();
     }
     public boolean isSystemRoot() {
         return !hasDrive() && !isRelative() && components.length == 0;
@@ -308,19 +330,23 @@ public final class VisuPath implements Iterable<String>, Comparable<VisuPath>, S
 
     public void printFull() {
         System.out.println("|--VisuPath--|");
-        System.out.println(toString());
+//        System.out.println(toString());
         System.out.println("Drive: " + getDriveName());
         System.out.println("Components: " + Arrays.toString(components));
         String oneSpaces = "    ";
         String spaces = oneSpaces;
-        VisuPath relativeTo = this.relativeTo;
-        while(relativeTo != null) {
-            System.out.println("Relative to...");
-            System.out.println(spaces + relativeTo.toString());
-            System.out.println(spaces + "Drive: " + relativeTo.getDriveName());
-            System.out.println(spaces + "Components: " + Arrays.toString(relativeTo.components));
-            spaces += oneSpaces;
-            relativeTo = relativeTo.relativeTo;
+        if(this.relativeTo != null && this.relativeTo.get() != null) {
+            Shell<VisuPath> relativeTo = this.relativeTo;
+            while(relativeTo != null) {
+                System.out.println("Relative to...");
+                System.out.println(spaces + relativeTo.get().toString());
+                System.out.println(spaces + "Drive: " + relativeTo.get().getDriveName());
+                System.out.println(spaces + "Components: " + Arrays.toString(relativeTo.get().components));
+                spaces += oneSpaces;
+                relativeTo = relativeTo.get().relativeTo;
+            }
+        } else {
+            System.out.println("Relative to... null");
         }
         System.out.println("--------------");
     }

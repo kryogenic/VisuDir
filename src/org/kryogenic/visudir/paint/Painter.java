@@ -42,23 +42,15 @@ public class Painter {
         paintForeground();
         if(path.isSystemRoot()) {
             paintSystemRoot();
-            g.drawString("System Root", (int) rect.getX(), 10);
         } else if(path.getFile().isFile()) {
             paintFile(path.getFile());
-            g.drawString("File", (int) rect.getX(), 10);
         } else if(VisuDir.tree().getCache().containsKey(path.getFile())) {
             paintVisuFolder(VisuDir.tree().getCache().get(path.getFile()), cursor);
-            g.drawString("VisuFolder", (int) rect.getX(), 10);
         } else if(path.getFile().isDirectory()) {
             paintFileFolder(path.getFile());
-            g.drawString("Directory", (int) rect.getX(), 10);
         } else {
             VisuDir.display().showMessage("Cannot paint 'Other': " + path);
         }
-        g.setColor(Color.BLACK);
-        g.fillRect(8, (int) rect.getHeight() - 15, 300, 20);
-        g.setColor(Color.WHITE);
-        g.drawString((String)Config.get("cur"), 10, (int)rect.getHeight());
     }
 
     private void paintForeground() {

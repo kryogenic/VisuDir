@@ -159,7 +159,18 @@ public class VisuDir extends JComponent implements Runnable, KeyListener, MouseW
     public static final String HOME = System.getProperty("user.home");
     public static final String VISU_HOME = HOME + FS + "VisuDir";
 
-    public static void main(final String... args) {try {
+    public static void main(final String... args) {
+        if(!Config.canWrite()) {
+            int result = JOptionPane.showConfirmDialog(null, "Allow VisuDir to store files on your hard drive?", "Permission Check", JOptionPane.YES_NO_CANCEL_OPTION);
+            switch(result) {
+                case JOptionPane.YES_OPTION:
+                    Config.touchConfig();
+                    break;
+                case JOptionPane.CLOSED_OPTION:
+                case JOptionPane.CANCEL_OPTION:
+                    return;
+            }
+        }
         if(args.length > 0) {
             File wd;
             int i = 0;
@@ -178,22 +189,10 @@ public class VisuDir extends JComponent implements Runnable, KeyListener, MouseW
         VISU_DIR = new VisuDir();
         display().initialize();
 
-        if(!Config.canWrite()) {
-            int result = JOptionPane.showConfirmDialog(null, "Allow VisuDir to store files on your hard drive?", "Permission Check", JOptionPane.YES_NO_CANCEL_OPTION);
-            switch(result) {
-                case JOptionPane.YES_OPTION:
-                    Config.touchConfig();
-                    break;
-                case JOptionPane.CLOSED_OPTION:
-                case JOptionPane.CANCEL_OPTION:
-                    return;
-            }
-        }
-
         EventQueue.invokeLater(VISU_DIR);
         while(true) {
             VISU_DIR.update();
             VISU_DIR.repaint();
-        }}catch(Exception e) {e.printStackTrace();}
+        }
     }
 }
