@@ -82,6 +82,8 @@ public class Config {
     }
 
     private void validate() {
+        if(config == null)
+            config = new HashMap<>();
         if(!(config.get("ColorScheme") instanceof String)) {
             config.put("ColorScheme", "Classic");
         }
